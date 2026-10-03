@@ -150,7 +150,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="wrap">
 <header>
   <h1>A street light that wakes up for traffic</h1>
-  <p class="lede">An ESP8266 reads a light sensor and two infrared sensors. By day the lights are off. At night the lamps wait, and when something passes a sensor, its lamp switches on for five seconds.</p>
+  <p class="lede">An ESP8266 reads a light sensor and two infrared sensors. By day the lights are off. At night every lamp glows at 50% to save power, and when something passes a lamp's sensor, that lamp goes to full brightness for five seconds.</p>
 </header>
 
 <section aria-labelledby="try">
@@ -239,8 +239,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <h2 id="how">How it behaves</h2>
   <div class="three">
     <div class="box"><h3>Day</h3><p>The light sensor says it is bright, so every lamp is off and running timers are cleared.</p></div>
-    <div class="box"><h3>Night, idle</h3><p>The lamps stay off while nothing is detected, to save power.</p></div>
-    <div class="box"><h3>Night, triggered</h3><p>Each lamp has its own IR sensor and its own 5 second timer. A new detection restarts the timer, and when it finishes that lamp goes off again.</p></div>
+    <div class="box"><h3>Night, idle</h3><p>Every lamp stays on at 50% brightness using PWM.</p></div>
+    <div class="box"><h3>Night, triggered</h3><p>Each lamp has its own IR sensor and its own 5 second timer. While it runs, that lamp is at 100% and the other stays dim. A new detection restarts the timer.</p></div>
   </div>
 </section>
 
@@ -360,11 +360,11 @@ void loop() {
   function tick(){
     var now=Date.now(),a0=night&&now<t[0],a1=night&&now<t[1],all=a0||a1;
     LX.forEach(function(e){e.style.setProperty('--b',0)});
-    L[0].style.setProperty('--b',a0?1:0);
-    L[1].style.setProperty('--b',a1?1:0);
+    L[0].style.setProperty('--b',!night?0:a0?1:.5);
+    L[1].style.setProperty('--b',!night?0:a1?1:.5);
     $('f1').style.width=(a0?(t[0]-now)/HOLD*100:0)+'%';
     $('f2').style.width=(a1?(t[1]-now)/HOLD*100:0)+'%';
-    $('st').innerHTML=!night?'<b>Day:</b> all lamps off.':all?'<b>Night:</b> '+(a0&&a1?'IR 1 and IR 2 fired, both lamps on.':a0?'IR 1 fired, lamp 1 on.':'IR 2 fired, lamp 2 on.'):'<b>Night, idle:</b> both lamps off, waiting for traffic.';
+    $('st').innerHTML=!night?'<b>Day:</b> all lamps off.':all?'<b>Night:</b> '+(a0&&a1?'IR 1 and IR 2 fired, both lamps at 100%.':a0?'IR 1 fired, lamp 1 at 100%, lamp 2 at 50%.':'IR 2 fired, lamp 2 at 100%, lamp 1 at 50%.'):'<b>Night, idle:</b> both lamps at 50%.';
   }
   // ---- live device sync ----
   var last=[0,0];
