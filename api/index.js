@@ -92,7 +92,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Smart Street Light — ESP8266 + LDR + dual IR</title>
+<title>Automatic Street Light Control Using LDR and Arduino — Batch No. 1</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -107,7 +107,8 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,sans-serif;line-height:1.6;font-size:clamp(15px,1.1vw + 11px,18px)}
 .wrap{max-width:1100px;margin:0 auto;padding:0 20px;padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
 h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.1;margin:0}
-h1{font-size:clamp(2.4rem,7vw,4.6rem);font-weight:800;letter-spacing:-.03em;max-width:13ch}
+h1{font-size:clamp(2rem,6.2vw,3.9rem);font-weight:800;letter-spacing:-.03em;max-width:19ch}
+.batch{display:inline-block;margin-bottom:14px;padding:5px 14px;border-radius:999px;background:var(--lamp);color:#1b2140;font-weight:700;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase}
 h2{font-size:clamp(1.6rem,4vw,2.3rem);font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
 h3{font-size:1.15rem;font-weight:700;margin-bottom:6px}
 p{margin:0 0 14px;max-width:62ch}
@@ -195,7 +196,8 @@ html.fs-lock,html.fs-lock body{overflow:hidden}
 <body>
 <div class="wrap">
 <header>
-  <h1>A street light that wakes up for traffic</h1>
+  <div class="batch">Batch No. 1</div>
+  <h1>Automatic Street Light Control Using LDR and Arduino</h1>
   <p class="lede">An ESP8266 reads a light sensor and two infrared sensors. By day the lights are off. At night every lamp glows at 50% to save power, and when something passes a lamp's sensor, that lamp goes to full brightness for five seconds.</p>
 </header>
 
@@ -334,7 +336,7 @@ void loop() {
 }</code></pre>
 </section>
 
-<footer>ESP8266 NodeMCU · LDR · 2 IR sensors · 3 LEDs</footer>
+<footer>Batch No. 1 · Automatic Street Light Control Using LDR and Arduino · ESP8266 NodeMCU · LDR · 2 IR sensors · 3 LEDs</footer>
 </div>
 
 <script>
