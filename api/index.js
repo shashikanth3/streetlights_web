@@ -3,21 +3,37 @@
 // GET  /api/state   -> latest device state (polled by the page)
 // POST /api/event   -> called by the ESP8266 (header X-Device-Token)
 //
-// Env vars: DEVICE_TOKEN (you choose it) + the Upstash Redis vars Vercel adds
-// (UPSTASH_REDIS_REST_URL / _TOKEN, or KV_REST_API_URL / _TOKEN).
+// Env vars: DEVICE_TOKEN (you choose it) + BLOB_READ_WRITE_TOKEN (Vercel adds it
+// when you connect a Blob store to the project). The state lives in one small
+// JSON file in the Blob store, so the store must be a Public one.
 
-const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+const { put, head } = require('@vercel/blob');
 
-async function redis(commands) {
-  if (!REDIS_URL || !REDIS_TOKEN) throw new Error('Redis env vars are missing');
-  const r = await fetch(REDIS_URL + '/pipeline', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + REDIS_TOKEN, 'Content-Type': 'application/json' },
-    body: JSON.stringify(commands),
+const STATE_PATH = 'sl/state.json';
+let blobUrl = null; // remembered between calls on a warm instance to save lookups
+
+async function load() {
+  try {
+    if (!blobUrl) blobUrl = (await head(STATE_PATH)).url;
+    // the query string makes the CDN fetch a fresh copy every time
+    const r = await fetch(blobUrl + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) return {};
+    return (await r.json()) || {};
+  } catch (e) {
+    if (e && e.name === 'BlobNotFoundError') return {}; // first run, nothing saved yet
+    throw e;
+  }
+}
+
+async function save(s) {
+  const out = await put(STATE_PATH, JSON.stringify(s), {
+    access: 'public',
+    contentType: 'application/json',
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    cacheControlMaxAge: 60,
   });
-  if (!r.ok) throw new Error('Redis error ' + r.status);
-  return r.json();
+  blobUrl = out.url;
 }
 
 async function event(req, res) {
@@ -29,11 +45,12 @@ async function event(req, res) {
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
   b = b || {};
   const now = Date.now();
-  const cmds = [['HSET', 'sl:state', 'seen', now]];
-  if (b.ir === 1 || b.ir === 2) cmds.push(['HSET', 'sl:state', 'ir' + b.ir + 'At', now]);
-  if (typeof b.night === 'boolean') cmds.push(['HSET', 'sl:state', 'night', b.night ? 1 : 0]);
   try {
-    await redis(cmds);
+    const s = await load();
+    s.seen = now;
+    if (b.ir === 1 || b.ir === 2) s['ir' + b.ir + 'At'] = now;
+    if (typeof b.night === 'boolean') s.night = b.night;
+    await save(s);
     res.status(200).json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -42,15 +59,12 @@ async function event(req, res) {
 
 async function state(req, res) {
   try {
-    const out = await redis([['HGETALL', 'sl:state']]);
-    const flat = (out[0] && out[0].result) || [];
-    const o = {};
-    for (let i = 0; i < flat.length; i += 2) o[flat[i]] = Number(flat[i + 1]);
+    const o = await load();
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({
       now: Date.now(),
       seen: o.seen || 0,
-      night: o.night === undefined ? null : o.night === 1,
+      night: typeof o.night === 'boolean' ? o.night : null,
       ir1At: o.ir1At || 0,
       ir2At: o.ir2At || 0,
     });
@@ -110,7 +124,7 @@ button{font:inherit;font-weight:600;border:1px solid var(--line);background:tran
 button:hover{border-color:var(--ink)}
 button:focus-visible{outline:3px solid var(--lamp);outline-offset:2px}
 button.primary{background:var(--lamp);border-color:var(--lamp);color:#1b2140}
-.bars{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;padding:0 16px 16px}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:0 16px 16px}
 .bar small{display:block;color:var(--muted);font-size:.85rem;margin-bottom:4px}
 .track{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
 .fill{height:100%;width:0;background:var(--lamp)}
@@ -136,16 +150,16 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <div class="wrap">
 <header>
   <h1>A street light that wakes up for traffic</h1>
-  <p class="lede">An ESP8266 reads a light sensor and three infrared sensors, one at each lamp. By day the lights are off. At night every lamp glows at 50% to save power, and when something passes a lamp's sensor, that lamp goes to full brightness for five seconds.</p>
+  <p class="lede">An ESP8266 reads a light sensor and two infrared sensors. By day the lights are off. At night the lamps wait, and when something passes a sensor, its lamp switches on for five seconds.</p>
 </header>
 
 <section aria-labelledby="try">
   <h2 id="try">Try it</h2>
-  <p>Switch to night, then send a car down the road. It drives toward you, so lamp 1 is the farthest one. When the ESP8266 is online, lamps 1 and 2 follow its IR sensors in real time; lamp 3 stays a demo.</p>
+  <p>Switch to night, then send a car down the road. It drives toward you, so lamp 1 is the farthest one. When the ESP8266 is online, this page follows its day/night sensor and both IR sensors in real time.</p>
   <div class="sim">
     <div class="scene night" id="scene">
       <div class="pill" id="pill">Demo mode</div>
-      <svg id="svg" viewBox="0 0 800 400" role="img" aria-label="A road at night with three street lights receding into the distance">
+      <svg id="svg" viewBox="0 0 800 400" role="img" aria-label="A road at night with two street lights receding into the distance">
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa6e6"/><stop offset="1" stop-color="#dbe8f6"/></linearGradient>
           <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dbe8f6" stop-opacity="0"/><stop offset="1" stop-color="#dbe8f6" stop-opacity=".95"/></linearGradient>
@@ -211,13 +225,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <button id="tgl" aria-pressed="true">Switch to day</button>
       <button class="primary" id="b1">Trigger IR 1</button>
       <button class="primary" id="b2">Trigger IR 2</button>
-      <button class="primary" id="b3">Trigger IR 3</button>
       <button id="drive">Drive a car through</button>
     </div>
     <div class="bars">
       <div class="bar"><small>IR 1 timer</small><div class="track"><div class="fill" id="f1"></div></div></div>
       <div class="bar"><small>IR 2 timer</small><div class="track"><div class="fill" id="f2"></div></div></div>
-      <div class="bar"><small>IR 3 timer</small><div class="track"><div class="fill" id="f3"></div></div></div>
     </div>
     <div class="status" id="st" aria-live="polite"></div>
   </div>
@@ -226,9 +238,9 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <section aria-labelledby="how">
   <h2 id="how">How it behaves</h2>
   <div class="three">
-    <div class="box"><h3>Day</h3><p>The light sensor reads below the night threshold, so every lamp is off and running timers are cleared.</p></div>
-    <div class="box"><h3>Night, idle</h3><p>Every lamp stays on at 50% brightness using PWM.</p></div>
-    <div class="box"><h3>Night, triggered</h3><p>Each lamp has its own IR sensor and its own 5 second timer. While it runs, that lamp is at 100% and the others stay dim. A new detection restarts the timer.</p></div>
+    <div class="box"><h3>Day</h3><p>The light sensor says it is bright, so every lamp is off and running timers are cleared.</p></div>
+    <div class="box"><h3>Night, idle</h3><p>The lamps stay off while nothing is detected, to save power.</p></div>
+    <div class="box"><h3>Night, triggered</h3><p>Each lamp has its own IR sensor and its own 5 second timer. A new detection restarts the timer, and when it finishes that lamp goes off again.</p></div>
   </div>
 </section>
 
@@ -236,31 +248,19 @@ button:disabled{opacity:.5;cursor:not-allowed}
   <h2 id="hw">Wiring</h2>
   <div class="scroll"><table>
     <tr><th>Part</th><th>NodeMCU pin</th><th>Notes</th></tr>
-    <tr><td>IR sensor 1 (lamp 1)</td><td>D1</td><td>Output goes LOW when it sees an object</td></tr>
-    <tr><td>IR sensor 2 (lamp 2)</td><td>D2</td><td>Same as sensor 1</td></tr>
-    <tr><td>IR sensor 3 (lamp 3)</td><td>D0</td><td>Same as sensor 1. D0 is safe to use at boot.</td></tr>
-    <tr><td>LED 1</td><td>D5</td><td>Anode to 3.3V, cathode to pin (PWM)</td></tr>
-    <tr><td>LED 2</td><td>D6</td><td>Anode to 3.3V, cathode to pin (PWM)</td></tr>
-    <tr><td>LED 3</td><td>D7</td><td>Anode to 3.3V, cathode to pin (PWM)</td></tr>
+    <tr><td>IR sensor 1 (entry)</td><td>D1</td><td>Output goes LOW when it sees an object</td></tr>
+    <tr><td>IR sensor 2 (exit)</td><td>D2</td><td>Same as sensor 1</td></tr>
+    <tr><td>LED 1</td><td>D5</td><td>Pin HIGH = on (use a resistor)</td></tr>
+    <tr><td>LED 2</td><td>D6</td><td>Pin HIGH = on (use a resistor)</td></tr>
+    <tr><td>LED 3</td><td>D7</td><td>Pin HIGH = on (use a resistor)</td></tr>
     <tr><td>LDR module</td><td>A0</td><td>Night when the reading is above 600</td></tr>
   </table></div>
 </section>
 
 <section aria-labelledby="code">
   <h2 id="code">The sketch</h2>
-  <p>LEDs are active-low, so the helper flips the duty cycle. Timers use <code>millis()</code>, so the loop never blocks.</p>
-<pre><code>const int  DIM_PERCENT = 50;
-const unsigned long BRIGHT_TIME = 5000;
-
-const int irPin[3]  = {D1, D2, D0};
-const int ledPin[3] = {D5, D6, D7};
-unsigned long until[3] = {0, 0, 0};
-bool bright[3] = {false, false, false};
-
-// active-low: 0% = off, 100% = full brightness
-void setLed(int pin, int pct) {
-  analogWrite(pin, 1023 - (pct * 1023) / 100);
-}
+  <p>Each IR sensor has its own timer based on <code>millis()</code>, so the loop never blocks. Any active timer turns all three LEDs on.</p>
+<pre><code>const unsigned long ALL_ON_TIME = 5000;
 
 void loop() {
   unsigned long now = millis();
@@ -268,28 +268,29 @@ void loop() {
   bool isNight = DARK_IS_LOW ? (ldr &lt; DARK_THRESHOLD)
                              : (ldr &gt; DARK_THRESHOLD);
 
-  for (int i = 0; i &lt; 3; i++) {
-    if (!isNight) { bright[i] = false; setLed(ledPin[i], 0); continue; }
+  if (!isNight) {
+    ir1Active = false; ir2Active = false;
+    allOff();                              // day
+  } else {
+    if (digitalRead(IR1_PIN) == IR_DETECTED) { ir1Active = true; ir1Until = now + ALL_ON_TIME; }
+    if (digitalRead(IR2_PIN) == IR_DETECTED) { ir2Active = true; ir2Until = now + ALL_ON_TIME; }
+    if (ir1Active &amp;&amp; (long)(now - ir1Until) &gt;= 0) ir1Active = false;
+    if (ir2Active &amp;&amp; (long)(now - ir2Until) &gt;= 0) ir2Active = false;
 
-    if (digitalRead(irPin[i]) == IR_DETECTED) {
-      bright[i] = true;
-      until[i]  = now + BRIGHT_TIME;
-    }
-    if (bright[i] &amp;&amp; (long)(now - until[i]) &gt;= 0) bright[i] = false;
-
-    setLed(ledPin[i], bright[i] ? 100 : DIM_PERCENT);
+    if (ir1Active || ir2Active) threeLedsOn();
+    else                        oneLedOn();   // only LED 3
   }
   delay(50);
 }</code></pre>
 </section>
 
-<footer>ESP8266 NodeMCU · LDR · HW-201 IR sensors · 3 PWM LEDs</footer>
+<footer>ESP8266 NodeMCU · LDR · 2 IR sensors · 3 LEDs</footer>
 </div>
 
 <script>
 (function(){
   var HOLD=5000,night=true,t=[0,0,0],driving=false,NS='http://www.w3.org/2000/svg';
-  var PS=[.25,.42,.67];
+  var PS=[.3,.62];
   var $=function(i){return document.getElementById(i)};
   var scene=$('scene'),L=[];
   function add(par,html){par.insertAdjacentHTML('beforeend',html)}
@@ -327,9 +328,9 @@ void loop() {
   function pole(s,n){
     var ctl=n>=0,x=400-320*s,y=190+210*s,tr='translate('+x+' '+y+') scale('+s+')',
         op=Math.min(1,.45+s*1.2).toFixed(2),id=ctl?'lt'+n:'lx'+LX.length;
-    add($('bodies'),'<g opacity="'+op+'" transform="'+tr+'"><path d="M-4 0L-120 7L-120 1L4-3Z" fill="#000" opacity=".28"/><ellipse cy="2" rx="14" ry="4" fill="#000" opacity=".25"/><path d="M-6 0H6L3-250H-3Z" fill="url(#pg)"/><rect x="-9" y="-14" width="18" height="14" rx="2" fill="#4a5273"/><path d="M0-250C0-272 24-274 58-262" stroke="#566087" stroke-width="6" fill="none"/><ellipse cx="64" cy="-258" rx="26" ry="7" fill="#7f89ab"/><ellipse cx="64" cy="-253" rx="19" ry="3.5" fill="#cfd6ee"/>'+(ctl?'<rect id="s'+(n+1)+'" class="sn" x="5" y="-120" width="16" height="30" rx="3"/>':'')+'</g>');
+    add($('bodies'),'<g opacity="'+op+'" transform="'+tr+'"><path d="M-4 0L-120 7L-120 1L4-3Z" fill="#000" opacity=".28"/><ellipse cy="2" rx="14" ry="4" fill="#000" opacity=".25"/><path d="M-6 0H6L3-250H-3Z" fill="url(#pg)"/><rect x="-9" y="-14" width="18" height="14" rx="2" fill="#4a5273"/><path d="M0-250C0-272 24-274 58-262" stroke="#566087" stroke-width="6" fill="none"/><ellipse cx="64" cy="-258" rx="26" ry="7" fill="#7f89ab"/><ellipse cx="64" cy="-253" rx="19" ry="3.5" fill="#cfd6ee"/>'+(ctl&&n<2?'<rect id="s'+(n+1)+'" class="sn" x="5" y="-120" width="16" height="30" rx="3"/>':'')+'</g>');
     add($('lights'),'<g class="lt" id="'+id+'" transform="'+tr+'"><circle cx="64" cy="-253" r="'+(130+120*(1-s)).toFixed(0)+'" fill="url(#gl)"/><polygon points="50,-251 78,-251 190,6 -50,6" fill="url(#cone)" filter="url(#bl)"/><ellipse cx="70" cy="4" rx="160" ry="24" fill="url(#pool)"/><ellipse cx="70" cy="75" rx="12" ry="85" fill="url(#gl)" opacity=".6"/><ellipse cx="64" cy="-253" rx="21" ry="6" fill="#fff8d6" filter="url(#bl)"/></g>');
-    if(ctl){add($('labels'),'<text class="lbl" x="'+x+'" y="'+(y+18)+'">IR '+(n+1)+'</text>');L.push($(id))}
+    if(ctl){if(n<2)add($('labels'),'<text class="lbl" x="'+x+'" y="'+(y+18)+'">IR '+(n+1)+'</text>');L.push($(id))}
     else LX.push($(id));
   }
   PS.forEach(function(s,n){pole(s,n)});
@@ -338,7 +339,7 @@ void loop() {
     t[n]=Date.now()+HOLD;
     var e=$('s'+(n+1));e.classList.add('hit');setTimeout(function(){e.classList.remove('hit')},300);
   }
-  [0,1,2].forEach(function(n){$('b'+(n+1)).onclick=function(){trig(n)}});
+  [0,1].forEach(function(n){$('b'+(n+1)).onclick=function(){trig(n)}});
   $('tgl').onclick=function(){
     night=!night;t=[0,0,0];scene.classList.toggle('night',night);
     this.textContent=night?'Switch to day':'Switch to night';this.setAttribute('aria-pressed',night);
@@ -347,7 +348,7 @@ void loop() {
   $('drive').onclick=function(){
     if(driving||!night)return;driving=true;
     carB.style.display='';carL.style.display='';
-    PS.forEach(function(s,n){setTimeout(function(){trig(n)},D*(z0-1/s)/(z0-z1))});
+    PS.slice(0,2).forEach(function(s,n){setTimeout(function(){trig(n)},D*(z0-1/s)/(z0-z1))});
     var t0=performance.now();
     (function f(now){
       var u=Math.min(1,(now-t0)/D),s=1/(z0+(z1-z0)*u),tr='translate('+(400+136*s)+' '+(190+210*s)+') scale('+s+')';
@@ -357,14 +358,13 @@ void loop() {
     })(t0);
   };
   function tick(){
-    var now=Date.now(),c=0;
-    LX.forEach(function(e){e.style.setProperty('--b',night?.5:0)});
-    for(var n=0;n<3;n++){
-      var a=night&&now<t[n];if(a)c++;
-      L[n].style.setProperty('--b',!night?0:a?1:.5);
-      $('f'+(n+1)).style.width=(a?(t[n]-now)/HOLD*100:0)+'%';
-    }
-    $('st').innerHTML=!night?'<b>Day:</b> all lamps off.':c?'<b>Night:</b> '+c+' of 3 lamps at 100%, the rest at 50%.':'<b>Night, idle:</b> all lamps at 50%.';
+    var now=Date.now(),a0=night&&now<t[0],a1=night&&now<t[1],all=a0||a1;
+    LX.forEach(function(e){e.style.setProperty('--b',0)});
+    L[0].style.setProperty('--b',a0?1:0);
+    L[1].style.setProperty('--b',a1?1:0);
+    $('f1').style.width=(a0?(t[0]-now)/HOLD*100:0)+'%';
+    $('f2').style.width=(a1?(t[1]-now)/HOLD*100:0)+'%';
+    $('st').innerHTML=!night?'<b>Day:</b> all lamps off.':all?'<b>Night:</b> '+(a0&&a1?'IR 1 and IR 2 fired, both lamps on.':a0?'IR 1 fired, lamp 1 on.':'IR 2 fired, lamp 2 on.'):'<b>Night, idle:</b> both lamps off, waiting for traffic.';
   }
   // ---- live device sync ----
   var last=[0,0];
@@ -374,7 +374,7 @@ void loop() {
   }
   function demo(){var p=$('pill');p.textContent='Demo mode';p.className='pill';$('tgl').disabled=false}
   function apply(d){
-    var online=d.now-d.seen<40000;
+    var online=d.now-d.seen<100000;
     if(!online){demo();return}
     var p=$('pill');p.textContent='Live from device';p.className='pill on';
     $('tgl').disabled=d.night!==null;
@@ -395,7 +395,7 @@ void loop() {
     if(document.hidden)return;
     fetch('api/state',{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(apply).catch(demo);
   }
-  setInterval(poll,700);poll();
+  setInterval(poll,1000);poll();
   setInterval(tick,50);tick();
 })();
 </script>
