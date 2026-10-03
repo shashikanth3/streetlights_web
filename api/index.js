@@ -20,7 +20,11 @@ async function load() {
     if (!r.ok) return {};
     return (await r.json()) || {};
   } catch (e) {
-    if (e && e.name === 'BlobNotFoundError') return {}; // first run, nothing saved yet
+    // first run: nothing saved yet
+    if (e && (e.name === 'BlobNotFoundError' || /does not exist|not found/i.test(e.message || ''))) {
+      blobUrl = null;
+      return {};
+    }
     throw e;
   }
 }
