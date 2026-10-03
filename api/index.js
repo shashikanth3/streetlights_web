@@ -208,7 +208,7 @@ html.fs-lock,html.fs-lock body{overflow:hidden}
     <div class="scene night" id="scene">
       <div class="pill" id="pill">Demo mode</div>
       <button class="fsb" id="fs" type="button" aria-label="Full screen">Full screen</button>
-      <svg id="svg" viewBox="0 0 800 400" role="img" aria-label="A road at night with two street lights receding into the distance">
+      <svg id="svg" viewBox="0 0 800 400" role="img" aria-label="A road with two street lights in front of the Siddhartha Institute of Technology &amp; Sciences college building">
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa6e6"/><stop offset="1" stop-color="#dbe8f6"/></linearGradient>
           <linearGradient id="haze" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dbe8f6" stop-opacity="0"/><stop offset="1" stop-color="#dbe8f6" stop-opacity=".95"/></linearGradient>
@@ -228,11 +228,30 @@ html.fs-lock,html.fs-lock body{overflow:hidden}
           <clipPath id="rc"><polygon points="394,190 406,190 672,400 128,400"/></clipPath>
         </defs>
         <rect width="800" height="190" fill="url(#sky)"/>
-        <circle class="dy" cx="650" cy="62" r="24" fill="#ffd45c"/>
+        <circle class="dy" cx="130" cy="62" r="24" fill="#ffd45c"/>
         <g id="skyA" fill="#8fa0bf"></g>
         <rect y="120" width="800" height="70" fill="url(#haze)"/>
         <g id="skyB" fill="#6c7c9c"></g>
         <rect y="160" width="800" height="30" fill="url(#haze)" opacity=".45"/>
+        <g id="college" transform="translate(350 0)">
+          <rect x="80" y="130" width="30" height="60" fill="#a8947c"/><rect x="350" y="130" width="30" height="60" fill="#a8947c"/>
+          <rect x="78" y="126" width="34" height="5" fill="#8a7560"/><rect x="348" y="126" width="34" height="5" fill="#8a7560"/>
+          <rect x="110" y="104" width="240" height="86" fill="#c4af96"/>
+          <rect x="106" y="99" width="248" height="6" fill="#8a7560"/>
+          <rect x="188" y="76" width="84" height="114" fill="#cdb9a0"/>
+          <rect x="184" y="73" width="92" height="5" fill="#8a7560"/>
+          <polygon points="178,74 230,48 282,74" fill="#8a6a52"/>
+          <line x1="230" y1="48" x2="230" y2="26" stroke="#5a5f70" stroke-width="1.6"/>
+          <polygon points="230,26 248,31 230,37" fill="#e0742e"/>
+          <g id="cWd" fill="#6f8dbb" opacity=".9"></g>
+          <g fill="#ece3d2"><rect x="195" y="150" width="6" height="40"/><rect x="207" y="150" width="6" height="40"/><rect x="247" y="150" width="6" height="40"/><rect x="259" y="150" width="6" height="40"/></g>
+          <rect x="219" y="164" width="22" height="26" rx="2" fill="#3a2e2a"/>
+          <rect x="150" y="110" width="160" height="28" rx="2.5" fill="#17306b" stroke="#f0d58a" stroke-width="1"/>
+          <g font-family="Figtree,system-ui,sans-serif" font-weight="700" text-anchor="middle" fill="#fff" letter-spacing=".25">
+            <text x="230" y="122.5" font-size="9">SIDDHARTHA INSTITUTE OF</text>
+            <text x="230" y="133.5" font-size="9">TECHNOLOGY &amp; SCIENCES</text>
+          </g>
+        </g>
         <rect y="190" width="800" height="210" fill="#76876f"/>
         <polygon points="394,190 128,400 0,400" fill="#9097a8"/>
         <polygon points="406,190 672,400 800,400" fill="#9097a8"/>
@@ -260,10 +279,21 @@ html.fs-lock,html.fs-lock body{overflow:hidden}
         <ellipse class="nt" cx="400" cy="190" rx="520" ry="70" fill="url(#cgw)"/>
         <rect class="nt" y="130" width="800" height="60" fill="url(#fg)"/>
         <g class="nt" id="stars" fill="#fff"></g>
-        <circle class="nt" cx="650" cy="62" r="70" fill="url(#mg)"/>
-        <circle class="nt" cx="650" cy="62" r="18" fill="#eef1ff"/>
+        <circle class="nt" cx="130" cy="62" r="70" fill="url(#mg)"/>
+        <circle class="nt" cx="130" cy="62" r="18" fill="#eef1ff"/>
         <g class="nt" id="winA" fill-opacity=".25"></g>
         <g class="nt" id="winB" fill-opacity=".4"></g>
+        <g class="nt" id="collegeN" transform="translate(350 0)">
+          <ellipse cx="230" cy="160" rx="170" ry="46" fill="url(#pool)" opacity=".28"/>
+          <rect x="150" y="110" width="160" height="28" rx="2.5" fill="#ffd25e" opacity=".4" filter="url(#bl)"/>
+          <rect x="150" y="110" width="160" height="28" rx="2.5" fill="#1c3f8f" stroke="#ffe9a8" stroke-width="1"/>
+          <g font-family="Figtree,system-ui,sans-serif" font-weight="700" text-anchor="middle" fill="#fff4c7" letter-spacing=".25">
+            <text x="230" y="122.5" font-size="9">SIDDHARTHA INSTITUTE OF</text>
+            <text x="230" y="133.5" font-size="9">TECHNOLOGY &amp; SCIENCES</text>
+          </g>
+          <rect x="219" y="164" width="22" height="26" rx="2" fill="#ffd980" opacity=".8"/>
+          <g id="cWn" fill="#ffd980"></g>
+        </g>
         <g id="lights"></g>
         <g id="carL" class="nt" style="display:none"><ellipse cx="0" cy="26" rx="190" ry="40" fill="url(#pool)"/><circle cx="-62" cy="-30" r="80" fill="url(#gl)"/><circle cx="62" cy="-30" r="80" fill="url(#gl)"/><ellipse cx="-62" cy="-30" rx="14" ry="7" fill="#fffbe0"/><ellipse cx="62" cy="-30" rx="14" ry="7" fill="#fffbe0"/></g>
         <rect width="800" height="400" fill="url(#vg)" pointer-events="none"/>
@@ -360,6 +390,16 @@ void loop() {
   }
   city('skyA','winA',22,48,30,95,.07);
   city('skyB','winB',34,74,18,52,.08);
+  // college building windows (blue glass by day, some lit at night)
+  (function(){
+    var W=[],i,j;
+    for(j=0;j<2;j++)for(i=0;i<5;i++){W.push([120+14*i,152+18*j,8,11]);W.push([280+14*i,152+18*j,8,11])}
+    for(j=0;j<3;j++){W.push([86,140+18*j,6,9]);W.push([98,140+18*j,6,9]);W.push([355,140+18*j,6,9]);W.push([367,140+18*j,6,9])}
+    W.push([213,84,8,14]);W.push([239,84,8,14]);
+    var d='',n='';
+    W.forEach(function(w){var r='<rect x="'+w[0]+'" y="'+w[1]+'" width="'+w[2]+'" height="'+w[3]+'" rx="1"';d+=r+'/>';if(rnd()<.72)n+=r+'/>'});
+    add($('cWd'),d);add($('cWn'),n);
+  })();
   var tg='';
   [.2,.31,.48,.71].forEach(function(s){tg+='<g transform="translate('+(400+336*s)+' '+(190+210*s)+') scale('+s+')"><rect x="-5" y="-95" width="10" height="95" fill="#3d342f"/><g fill="#3f5b4c"><circle cy="-125" r="46"/><circle cx="-32" cy="-104" r="34"/><circle cx="30" cy="-108" r="36"/><circle cy="-158" r="32"/></g><circle cx="-14" cy="-134" r="22" fill="#52715c" opacity=".6"/></g>'});
   add($('trees'),tg);
