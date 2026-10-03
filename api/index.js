@@ -104,8 +104,8 @@ const HTML = `<!DOCTYPE html>
 :root[data-theme="dark"]{--bg:#121734;--ink:#e8ebf7;--muted:#9aa2c4;--panel:#1a2146;--line:#2b3566;--lamp:#ffc83d;--code:#0d1128}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,sans-serif;line-height:1.6;font-size:17px}
-.wrap{max-width:980px;margin:0 auto;padding:0 20px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Figtree,system-ui,sans-serif;line-height:1.6;font-size:clamp(15px,1.1vw + 11px,18px)}
+.wrap{max-width:1100px;margin:0 auto;padding:0 20px;padding-left:max(20px,env(safe-area-inset-left));padding-right:max(20px,env(safe-area-inset-right))}
 h1,h2,h3{font-family:'Bricolage Grotesque',system-ui,sans-serif;line-height:1.1;margin:0}
 h1{font-size:clamp(2.4rem,7vw,4.6rem);font-weight:800;letter-spacing:-.03em;max-width:13ch}
 h2{font-size:clamp(1.6rem,4vw,2.3rem);font-weight:700;letter-spacing:-.02em;margin-bottom:12px}
@@ -114,7 +114,8 @@ p{margin:0 0 14px;max-width:62ch}
 .lede{color:var(--muted);font-size:1.15rem;margin-top:18px}
 header{padding:56px 0 28px}section{padding:36px 0}
 .sim{background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden}
-.scene{position:relative;background:#101636}
+.scene{position:relative;background:linear-gradient(#6fa6e6 50%,#76876f 50%)}
+.scene.night{background:linear-gradient(#101a37 50%,#283156 50%)}
 .scene svg{display:block;width:100%;height:auto}
 .dark{opacity:0;transition:opacity .6s}
 .night .dark{opacity:.86}
@@ -148,6 +149,47 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .pill.on{background:#1f7a4d;color:#fff}
 @media (max-width:560px){.bars{grid-template-columns:1fr}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---- adaptive layout + full screen ---- */
+button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.fsb{position:absolute;right:12px;top:12px;z-index:3;min-height:34px;padding:5px 12px;font-size:.8rem;border:0;border-radius:999px;background:rgba(20,25,60,.75);color:#cfd6f5}
+.fsb:hover{background:rgba(20,25,60,.92)}
+html.fs-lock,html.fs-lock body{overflow:hidden}
+.sim.fs{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;height:100vh;height:100dvh;border:0;border-radius:0;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+.sim.fs .scene{flex:1 1 auto;min-height:0;align-self:stretch}
+.sim.fs .scene svg{position:absolute;inset:0;width:100%;height:100%}
+.sim.fs .panel{flex:0 0 auto;max-height:42%;overflow-y:auto}
+.sim.fs .ctl{display:flex;flex-wrap:wrap;padding:10px 12px;gap:8px}
+.sim.fs .ctl button{min-height:44px;padding:10px 16px;font-size:1rem}
+.sim.fs .bars{grid-template-columns:1fr 1fr;padding:0 12px 10px}
+.sim.fs .status{padding:0 12px 10px;font-size:.95rem;line-height:1.6}
+.rot{display:none}
+@media (orientation:landscape) and (max-height:540px) and (min-aspect-ratio:8/5){
+  header{padding:18px 0 6px}section{padding:16px 0}footer{padding:18px 0 28px}
+  h1{font-size:clamp(1.7rem,4.2vw,2.6rem);max-width:none}
+  h2{font-size:1.4rem;margin-bottom:8px}
+  .lede{font-size:1rem;margin-top:8px}
+  .sim{display:flex}
+  .sim .scene{flex:1 1 0;min-width:0;align-self:flex-start}
+  .sim .panel{flex:0 0 clamp(200px,30vw,270px);border-left:1px solid var(--line)}
+  .sim .ctl{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:0}
+  .sim .ctl button{min-height:40px;padding:8px 10px;font-size:.9rem}
+  .sim .bars{grid-template-columns:1fr 1fr;gap:10px;padding:0 10px 8px}
+  .sim .status{padding:0 10px 10px;font-size:.88rem;line-height:1.4}
+}
+@media (orientation:portrait){
+  .sim.fs .scene{flex:0 0 auto;width:100%;aspect-ratio:2/1}
+  .sim.fs .panel{flex:1 1 auto;max-height:none}
+  .sim.fs .ctl button{flex:1 1 42%;min-height:54px}
+  .sim.fs .status{font-size:1.05rem}
+  .sim.fs .rot{display:block;padding:0 12px 14px;color:var(--muted);font-size:.9rem}
+}
+@media (orientation:landscape) and (min-aspect-ratio:8/5){
+  .sim.fs{flex-direction:row}
+  .sim.fs .panel{flex:0 0 clamp(210px,28vw,290px);max-height:none;border-left:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;overflow-y:auto}
+  .sim.fs .ctl{flex-direction:column;border-top:0}
+  .sim.fs .bars{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -159,10 +201,11 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <section aria-labelledby="try">
   <h2 id="try">Try it</h2>
-  <p>Switch to night, then send a car down the road. It drives toward you, so lamp 1 is the farthest one. When the ESP8266 is online, this page follows its day/night sensor and both IR sensors in real time.</p>
-  <div class="sim">
+  <p>Switch to night, then send a car down the road. It drives toward you, so lamp 1 is the farthest one. When the ESP8266 is online, this page follows its day/night sensor and both IR sensors in real time. Tap Full screen for a bigger view, in portrait or landscape.</p>
+  <div class="sim" id="sim">
     <div class="scene night" id="scene">
       <div class="pill" id="pill">Demo mode</div>
+      <button class="fsb" id="fs" type="button" aria-label="Full screen">Full screen</button>
       <svg id="svg" viewBox="0 0 800 400" role="img" aria-label="A road at night with two street lights receding into the distance">
         <defs>
           <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa6e6"/><stop offset="1" stop-color="#dbe8f6"/></linearGradient>
@@ -225,6 +268,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
         <g id="labels"></g>
       </svg>
     </div>
+    <div class="panel">
     <div class="ctl">
       <button id="tgl" aria-pressed="true">Switch to day</button>
       <button class="primary" id="b1">Trigger IR 1</button>
@@ -236,6 +280,8 @@ button:disabled{opacity:.5;cursor:not-allowed}
       <div class="bar"><small>IR 2 timer</small><div class="track"><div class="fill" id="f2"></div></div></div>
     </div>
     <div class="status" id="st" aria-live="polite"></div>
+      <div class="rot">Tip: rotate your phone to landscape for a bigger view.</div>
+    </div>
   </div>
 </section>
 
@@ -370,6 +416,42 @@ void loop() {
     $('f2').style.width=(a1?(t[1]-now)/HOLD*100:0)+'%';
     $('st').innerHTML=!night?'<b>Day:</b> all lamps off.':all?'<b>Night:</b> '+(a0&&a1?'IR 1 and IR 2 fired, both lamps at 100%.':a0?'IR 1 fired, lamp 1 at 100%, lamp 2 at 50%.':'IR 2 fired, lamp 2 at 100%, lamp 1 at 50%.'):'<b>Night, idle:</b> both lamps at 50%.';
   }
+  // ---- full screen (works in portrait and landscape, with a fallback for iPhone) ----
+  var sim=$('sim'),svg=$('svg'),fsb=$('fs'),wl=null;
+  function isFs(){return sim.classList.contains('fs')}
+  function nativeEl(){return document.fullscreenElement||document.webkitFullscreenElement}
+  function fit(){
+    var r=scene.getBoundingClientRect();
+    var wide=isFs()&&r.height>0&&r.width/r.height>=1.35;
+    svg.setAttribute('preserveAspectRatio',wide?'xMidYMid slice':'xMidYMid meet');
+  }
+  function lockScreen(){
+    try{if(navigator.wakeLock)navigator.wakeLock.request('screen').then(function(l){wl=l;l.addEventListener('release',function(){wl=null})}).catch(function(){})}catch(e){}
+  }
+  function unlockScreen(){try{if(wl)wl.release()}catch(e){}wl=null}
+  function enterFs(){
+    sim.classList.add('fs');document.documentElement.classList.add('fs-lock');
+    fsb.textContent='Exit full screen';fsb.setAttribute('aria-label','Exit full screen');
+    var f=sim.requestFullscreen||sim.webkitRequestFullscreen;
+    if(f){try{var p=f.call(sim);if(p&&p.catch)p.catch(function(){})}catch(e){}}
+    lockScreen();fit();
+  }
+  function leaveFs(){
+    sim.classList.remove('fs');document.documentElement.classList.remove('fs-lock');
+    fsb.textContent='Full screen';fsb.setAttribute('aria-label','Full screen');
+    if(nativeEl()){var x=document.exitFullscreen||document.webkitExitFullscreen;try{var p=x.call(document);if(p&&p.catch)p.catch(function(){})}catch(e){}}
+    unlockScreen();fit();
+  }
+  fsb.onclick=function(){isFs()?leaveFs():enterFs()};
+  function onFsChange(){if(isFs()&&!nativeEl())leaveFs();else fit()}
+  document.addEventListener('fullscreenchange',onFsChange);
+  document.addEventListener('webkitfullscreenchange',onFsChange);
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&isFs())leaveFs()});
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&isFs()&&!wl)lockScreen()});
+  window.addEventListener('resize',fit);
+  window.addEventListener('orientationchange',function(){setTimeout(fit,200)});
+  if(window.ResizeObserver)new ResizeObserver(fit).observe(scene);
+  fit();
   // ---- live device sync ----
   var last=[0,0];
   function setNight(v){
