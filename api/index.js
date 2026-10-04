@@ -259,6 +259,7 @@ html.fs-lock,html.fs-lock body{overflow:hidden}
       <button class="primary" id="b1">Trigger IR 1</button>
       <button class="primary" id="b2">Trigger IR 2</button>
       <button id="drive">Drive a car through</button>
+      <button id="demoBtn" type="button" style="display:none">Switch to demo</button>
     </div>
     <div class="bars">
       <div class="bar"><small>IR 1 timer</small><div class="track"><div class="fill" id="f1"></div></div></div>
@@ -373,7 +374,7 @@ void loop() {
   function pole(s,n){
     var ctl=n>=0,x=400-320*s,y=190+210*s,tr='translate('+x+' '+y+') scale('+s+')',
         op=Math.min(1,.45+s*1.2).toFixed(2),id=ctl?'lt'+n:'lx'+LX.length;
-    add($('bodies'),'<g opacity="'+op+'" transform="'+tr+'"><path d="M-4 0L-120 7L-120 1L4-3Z" fill="#000" opacity=".28"/><ellipse cy="2" rx="14" ry="4" fill="#000" opacity=".25"/><path d="M-6 0H6L3-250H-3Z" fill="url(#pg)"/><rect x="-9" y="-14" width="18" height="14" rx="2" fill="#4a5273"/><path d="M0-250C0-272 24-274 58-262" stroke="#566087" stroke-width="6" fill="none"/><ellipse cx="64" cy="-258" rx="26" ry="7" fill="#7f89ab"/><ellipse cx="64" cy="-253" rx="19" ry="3.5" fill="#cfd6ee"/>'+(ctl&&n<2?'<rect id="s'+(n+1)+'" class="sn" x="5" y="-120" width="16" height="30" rx="3"/>':'')+'</g>');
+    add($('bodies'),'<g'+(ctl?' id="pb'+n+'"':'')+' opacity="'+op+'" transform="'+tr+'"><path d="M-4 0L-120 7L-120 1L4-3Z" fill="#000" opacity=".28"/><ellipse cy="2" rx="14" ry="4" fill="#000" opacity=".25"/><path d="M-6 0H6L3-250H-3Z" fill="url(#pg)"/><rect x="-9" y="-14" width="18" height="14" rx="2" fill="#4a5273"/><path d="M0-250C0-272 24-274 58-262" stroke="#566087" stroke-width="6" fill="none"/><ellipse cx="64" cy="-258" rx="26" ry="7" fill="#7f89ab"/><ellipse cx="64" cy="-253" rx="19" ry="3.5" fill="#cfd6ee"/>'+(ctl&&n<2?'<rect id="s'+(n+1)+'" class="sn" x="5" y="-120" width="16" height="30" rx="3"/>':'')+'</g>');
     add($('lights'),'<g class="lt" id="'+id+'" transform="'+tr+'"><circle cx="64" cy="-253" r="'+(130+120*(1-s)).toFixed(0)+'" fill="url(#gl)"/><polygon points="50,-251 78,-251 190,6 -50,6" fill="url(#cone)" filter="url(#bl)"/><ellipse cx="70" cy="4" rx="160" ry="24" fill="url(#pool)"/><ellipse cx="70" cy="75" rx="12" ry="85" fill="url(#gl)" opacity=".6"/><ellipse cx="64" cy="-253" rx="21" ry="6" fill="#fff8d6" filter="url(#bl)"/></g>');
     if(ctl){if(n<2)add($('labels'),'<text class="lbl" x="'+x+'" y="'+(y+18)+'">IR '+(n+1)+'</text>');L.push($(id))}
     else LX.push($(id));
@@ -384,7 +385,50 @@ void loop() {
     t[n]=Date.now()+HOLD;
     var e=$('s'+(n+1));e.classList.add('hit');setTimeout(function(){e.classList.remove('hit')},300);
   }
-  [0,1].forEach(function(n){$('b'+(n+1)).onclick=function(){trig(n)}});
+  [0,1].forEach(function(n){$('b'+(n+1)).onclick=function(){if(man.style.display!=='none')walk(n?.5:MS0);else trig(n)}});
+  // ---- walking man (demo mode): perspective scale, depth ordering vs poles, IR fired as he passes ----
+  add($('bodies'),'<g id="man" style="display:none"><ellipse id="mSh" cx="-16" cy="2" rx="38" ry="7" fill="#000" opacity=".4"/>'+
+    '<g id="mlL"><rect x="-18" y="-90" width="15" height="84" rx="6" fill="#2c3354"/><rect x="-21" y="-11" width="20" height="11" rx="5" fill="#14172b"/></g>'+
+    '<g id="mlR"><rect x="3" y="-90" width="15" height="84" rx="6" fill="#2c3354"/><rect x="1" y="-11" width="20" height="11" rx="5" fill="#14172b"/></g>'+
+    '<g id="mBody"><g id="maL"><rect x="-34" y="-140" width="12" height="52" rx="6" fill="#c9672a"/><circle cx="-28" cy="-85" r="6" fill="#d9a577"/></g>'+
+    '<g id="maR"><rect x="22" y="-140" width="12" height="52" rx="6" fill="#c9672a"/><circle cx="28" cy="-85" r="6" fill="#d9a577"/></g>'+
+    '<rect x="-23" y="-146" width="46" height="62" rx="15" fill="#e0742e"/><rect x="-21" y="-92" width="42" height="7" fill="#1c1f33"/>'+
+    '<rect x="-5" y="-156" width="10" height="12" fill="#c98f62"/><circle cy="-168" r="13" fill="#d9a577"/>'+
+    '<path d="M-13-169C-13-186 13-186 13-169C7-176-7-176-13-169Z" fill="#1c1410"/></g></g>');
+  var man=$('man'),mlL=$('mlL'),mlR=$('mlR'),maL=$('maL'),maR=$('maR'),mBody=$('mBody'),mZone=-1;
+  var MX=352,MS0=.16,MZ1=.8,MV=.0007,M={walking:false,wait:0,t0:0,z0:1/MS0,s:MS0,fired:[true,true]};
+  function manZone(s){
+    var z=s<PS[0]?0:s<PS[1]?1:2;if(z===mZone)return;mZone=z;
+    var p=$('bodies');
+    if(z===0)p.insertBefore(man,$('pb0'));else if(z===1)p.insertBefore(man,$('pb1'));else p.appendChild(man);
+  }
+  function walk(s0){
+    M.walking=true;M.wait=0;M.t0=performance.now();M.z0=1/s0;
+    M.fired=[s0>=PS[0],s0>=PS[1]];
+  }
+  function manFrame(now){
+    if(man.style.display!=='none'){
+      var s=M.s,ph=0;
+      if(M.walking){
+        var z=M.z0-MV*(now-M.t0);
+        if(z<=MZ1){M.walking=false;M.wait=now+2200;s=MS0;M.fired=[true,true]}
+        else{s=1/z;ph=(now-M.t0)*.0072}
+      }else if(M.wait&&now>M.wait){M.wait=0;walk(MS0);s=MS0}
+      M.s=s;
+      if(M.walking)[0,1].forEach(function(k){if(!M.fired[k]&&s>=PS[k]){M.fired[k]=true;trig(k)}});
+      var sw=Math.sin(ph),bob=M.walking?-Math.abs(Math.cos(ph))*4:0,lift=Math.max(0,sw)*11,lift2=Math.max(0,-sw)*11;
+      manZone(s);
+      man.setAttribute('transform','translate('+(400-MX*s)+' '+(190+210*s)+') scale('+s+')');
+      man.setAttribute('opacity',Math.min(1,.5+s*1.6).toFixed(2));
+      mlL.setAttribute('transform','translate(0 '+(-lift)+') rotate('+(sw*7)+' -10 -90)');
+      mlR.setAttribute('transform','translate(0 '+(-lift2)+') rotate('+(sw*7)+' 10 -90)');
+      maL.setAttribute('transform','translate(0 '+(sw*7)+')');
+      maR.setAttribute('transform','translate(0 '+(-sw*7)+')');
+      mBody.setAttribute('transform','translate(0 '+bob+')');
+    }
+    requestAnimationFrame(manFrame);
+  }
+  requestAnimationFrame(manFrame);
   $('tgl').onclick=function(){
     night=!night;t=[0,0,0];scene.classList.toggle('night',night);
     this.textContent=night?'Switch to day':'Switch to night';this.setAttribute('aria-pressed',night);
@@ -453,16 +497,27 @@ void loop() {
     if(night===v)return;night=v;t=[0,0,0];scene.classList.toggle('night',v);
     var b=$('tgl');b.textContent=v?'Switch to day':'Switch to night';b.setAttribute('aria-pressed',v);
   }
-  function demo(){var p=$('pill');p.textContent='Demo mode';p.className='pill';$('tgl').disabled=false}
-  var best={seen:0,night:null,ir1At:0,ir2At:0};
+  var best={seen:0,night:null,ir1At:0,ir2At:0},forceDemo=false,isOnline=false;
+  function refreshUI(){
+    var live=isOnline&&!forceDemo,p=$('pill'),db=$('demoBtn');
+    p.textContent=live?'Live from device':'Demo mode';p.className=live?'pill on':'pill';
+    $('tgl').disabled=live&&best.night!==null;
+    db.style.display=isOnline?'':'none';db.textContent=forceDemo?'Back to live':'Switch to demo';
+    db.setAttribute('aria-pressed',forceDemo);
+    man.style.display=live?'none':'';
+    if(live){M.walking=false;M.wait=0;M.s=MS0;mZone=-1}
+    else if(!M.walking&&!M.wait)M.wait=performance.now()+1200;
+  }
+  function demo(){isOnline=false;forceDemo=false;refreshUI()}
+  $('demoBtn').onclick=function(){forceDemo=!forceDemo;t=[0,0,0];refreshUI();if(!forceDemo)poll()};
   function apply(d){
     // keep the newest information seen so far, so a stale answer can never go backwards
     if(d.seen>=best.seen){best.seen=d.seen;if(d.night!==null)best.night=d.night}
     best.ir1At=Math.max(best.ir1At,d.ir1At);best.ir2At=Math.max(best.ir2At,d.ir2At);
     var online=best.seen>0&&d.now-best.seen<100000;
     if(!online){demo();return}
-    var p=$('pill');p.textContent='Live from device';p.className='pill on';
-    $('tgl').disabled=best.night!==null;
+    isOnline=true;refreshUI();
+    if(forceDemo){[1,2].forEach(function(k,i){last[i]=Math.max(last[i],best['ir'+k+'At'])});return}
     if(best.night!==null)setNight(best.night);
     [1,2].forEach(function(k,i){
       var at=best['ir'+k+'At'];
@@ -481,6 +536,7 @@ void loop() {
     fetch('api/state',{cache:'no-store'}).then(function(r){return r.ok?r.json():Promise.reject()}).then(apply).catch(demo);
   }
   setInterval(poll,1000);poll();
+  refreshUI();
   setInterval(tick,50);tick();
 })();
 </script>
