@@ -3,44 +3,14 @@
 // GET  /api/state   -> latest device state (polled by the page)
 // POST /api/event   -> called by the ESP8266 (header X-Device-Token)
 //
-// Env vars: DEVICE_TOKEN (you choose it) + BLOB_READ_WRITE_TOKEN (Vercel adds it
-// when you connect a Blob store to the project). The state lives in one small
-// JSON file in the Blob store, so the store must be a Public one.
+// Env var needed: DEVICE_TOKEN (you choose it). There is no database: the latest
+// state lives in the server's memory, which has no usage limits. The ESP8266
+// re-sends its state at least once a minute, so it refills by itself if the
+// server ever restarts.
 
-const { put, head } = require('@vercel/blob');
+const S = globalThis.__streetLight || (globalThis.__streetLight = { seen: 0, night: null, ir1At: 0, ir2At: 0 });
 
-const STATE_PATH = 'sl/state.json';
-let blobUrl = null; // remembered between calls on a warm instance to save lookups
-
-async function load() {
-  try {
-    if (!blobUrl) blobUrl = (await head(STATE_PATH)).url;
-    // the query string makes the CDN fetch a fresh copy every time
-    const r = await fetch(blobUrl + '?t=' + Date.now(), { cache: 'no-store' });
-    if (!r.ok) return {};
-    return (await r.json()) || {};
-  } catch (e) {
-    // first run: nothing saved yet
-    if (e && (e.name === 'BlobNotFoundError' || /does not exist|not found/i.test(e.message || ''))) {
-      blobUrl = null;
-      return {};
-    }
-    throw e;
-  }
-}
-
-async function save(s) {
-  const out = await put(STATE_PATH, JSON.stringify(s), {
-    access: 'public',
-    contentType: 'application/json',
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-  });
-  blobUrl = out.url;
-}
-
-async function event(req, res) {
+function event(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
   if (!process.env.DEVICE_TOKEN || req.headers['x-device-token'] !== process.env.DEVICE_TOKEN) {
     return res.status(401).json({ error: 'bad token' });
@@ -49,35 +19,18 @@ async function event(req, res) {
   if (typeof b === 'string') { try { b = JSON.parse(b); } catch (e) { b = {}; } }
   b = b || {};
   const now = Date.now();
-  try {
-    const s = await load();
-    s.seen = now;
-    if (b.ir === 1 || b.ir === 2) s['ir' + b.ir + 'At'] = now;
-    if (typeof b.night === 'boolean') s.night = b.night;
-    await save(s);
-    res.status(200).json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+  S.seen = now;
+  if (b.ir === 1 || b.ir === 2) S['ir' + b.ir + 'At'] = now;
+  if (typeof b.night === 'boolean') S.night = b.night;
+  res.status(200).json({ ok: true });
 }
 
-async function state(req, res) {
-  try {
-    const o = await load();
-    res.setHeader('Cache-Control', 'no-store');
-    res.status(200).json({
-      now: Date.now(),
-      seen: o.seen || 0,
-      night: typeof o.night === 'boolean' ? o.night : null,
-      ir1At: o.ir1At || 0,
-      ir2At: o.ir2At || 0,
-    });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
+function state(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  res.status(200).json({ now: Date.now(), seen: S.seen, night: S.night, ir1At: S.ir1At, ir2At: S.ir2At });
 }
 
-module.exports = async function handler(req, res) {
+module.exports = function handler(req, res) {
   const path = (req.url || '/').split('?')[0].replace(/\/+$/, '') || '/';
   if (path === '/api/event') return event(req, res);
   if (path === '/api/state') return state(req, res);
@@ -501,14 +454,18 @@ void loop() {
     var b=$('tgl');b.textContent=v?'Switch to day':'Switch to night';b.setAttribute('aria-pressed',v);
   }
   function demo(){var p=$('pill');p.textContent='Demo mode';p.className='pill';$('tgl').disabled=false}
+  var best={seen:0,night:null,ir1At:0,ir2At:0};
   function apply(d){
-    var online=d.now-d.seen<100000;
+    // keep the newest information seen so far, so a stale answer can never go backwards
+    if(d.seen>=best.seen){best.seen=d.seen;if(d.night!==null)best.night=d.night}
+    best.ir1At=Math.max(best.ir1At,d.ir1At);best.ir2At=Math.max(best.ir2At,d.ir2At);
+    var online=best.seen>0&&d.now-best.seen<100000;
     if(!online){demo();return}
     var p=$('pill');p.textContent='Live from device';p.className='pill on';
-    $('tgl').disabled=d.night!==null;
-    if(d.night!==null)setNight(d.night);
+    $('tgl').disabled=best.night!==null;
+    if(best.night!==null)setNight(best.night);
     [1,2].forEach(function(k,i){
-      var at=d['ir'+k+'At'];
+      var at=best['ir'+k+'At'];
       if(at>last[i]){
         last[i]=at;
         var rem=HOLD-(d.now-at);
