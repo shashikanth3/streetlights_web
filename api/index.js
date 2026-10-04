@@ -385,7 +385,7 @@ void loop() {
     t[n]=Date.now()+HOLD;
     var e=$('s'+(n+1));e.classList.add('hit');setTimeout(function(){e.classList.remove('hit')},300);
   }
-  [0,1].forEach(function(n){$('b'+(n+1)).onclick=function(){if(man.style.display!=='none')walk(n?.5:MS0);else trig(n)}});
+  [0,1].forEach(function(n){$('b'+(n+1)).onclick=function(){if(demoView)walk(n?.5:MS0);else trig(n)}});
   // ---- walking man (demo mode): perspective scale, depth ordering vs poles, IR fired as he passes ----
   add($('bodies'),'<g id="man" style="display:none"><ellipse id="mSh" cx="-16" cy="2" rx="38" ry="7" fill="#000" opacity=".4"/>'+
     '<g id="mlL"><rect x="-18" y="-90" width="15" height="84" rx="6" fill="#2c3354"/><rect x="-21" y="-11" width="20" height="11" rx="5" fill="#14172b"/></g>'+
@@ -395,7 +395,7 @@ void loop() {
     '<rect x="-23" y="-146" width="46" height="62" rx="15" fill="#e0742e"/><rect x="-21" y="-92" width="42" height="7" fill="#1c1f33"/>'+
     '<rect x="-5" y="-156" width="10" height="12" fill="#c98f62"/><circle cy="-168" r="13" fill="#d9a577"/>'+
     '<path d="M-13-169C-13-186 13-186 13-169C7-176-7-176-13-169Z" fill="#1c1410"/></g></g>');
-  var man=$('man'),mlL=$('mlL'),mlR=$('mlR'),maL=$('maL'),maR=$('maR'),mBody=$('mBody'),mZone=-1;
+  var demoView=true,man=$('man'),mlL=$('mlL'),mlR=$('mlR'),maL=$('maL'),maR=$('maR'),mBody=$('mBody'),mZone=-1;
   var MX=352,MS0=.16,MZ1=.8,MV=.0007,M={walking:false,wait:0,t0:0,z0:1/MS0,s:MS0,fired:[true,true]};
   function manZone(s){
     var z=s<PS[0]?0:s<PS[1]?1:2;if(z===mZone)return;mZone=z;
@@ -403,17 +403,17 @@ void loop() {
     if(z===0)p.insertBefore(man,$('pb0'));else if(z===1)p.insertBefore(man,$('pb1'));else p.appendChild(man);
   }
   function walk(s0){
-    M.walking=true;M.wait=0;M.t0=performance.now();M.z0=1/s0;
+    man.style.display='';M.walking=true;M.wait=0;M.t0=performance.now();M.z0=1/s0;
     M.fired=[s0>=PS[0],s0>=PS[1]];
   }
   function manFrame(now){
-    if(man.style.display!=='none'){
+    if(demoView&&M.walking){
       var s=M.s,ph=0;
       if(M.walking){
         var z=M.z0-MV*(now-M.t0);
-        if(z<=MZ1){M.walking=false;M.wait=now+2200;s=MS0;M.fired=[true,true]}
+        if(z<=MZ1){M.walking=false;man.style.display='none';M.fired=[true,true];requestAnimationFrame(manFrame);return}
         else{s=1/z;ph=(now-M.t0)*.0072}
-      }else if(M.wait&&now>M.wait){M.wait=0;walk(MS0);s=MS0}
+      }
       M.s=s;
       if(M.walking)[0,1].forEach(function(k){if(!M.fired[k]&&s>=PS[k]){M.fired[k]=true;trig(k)}});
       var sw=Math.sin(ph),bob=M.walking?-Math.abs(Math.cos(ph))*4:0,lift=Math.max(0,sw)*11,lift2=Math.max(0,-sw)*11;
@@ -504,9 +504,8 @@ void loop() {
     $('tgl').disabled=live&&best.night!==null;
     db.style.display=isOnline?'':'none';db.textContent=forceDemo?'Back to live':'Switch to demo';
     db.setAttribute('aria-pressed',forceDemo);
-    man.style.display=live?'none':'';
-    if(live){M.walking=false;M.wait=0;M.s=MS0;mZone=-1}
-    else if(!M.walking&&!M.wait)M.wait=performance.now()+1200;
+    demoView=!live;
+    if(live){M.walking=false;man.style.display='none';mZone=-1}
   }
   function demo(){isOnline=false;forceDemo=false;refreshUI()}
   $('demoBtn').onclick=function(){forceDemo=!forceDemo;t=[0,0,0];refreshUI();if(!forceDemo)poll()};
